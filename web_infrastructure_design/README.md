@@ -90,3 +90,21 @@ A three-server infrastructure secured with firewalls, HTTPS, and monitoring for 
 - SSL terminates at the load balancer: traffic between HAProxy and the backend servers is plain HTTP — unencrypted inside the network, which is a risk if the internal network is compromised
 - Single MySQL writer: only the Primary can accept writes — if it goes down, no writes are possible, causing partial downtime
 - Mixed-role servers: each server runs the database, app server, and web server together — a spike in DB load affects web performance, and scaling one component means scaling all of them unnecessarily
+
+### 3. Scale up
+A scaled infrastructure with clustered HAProxy load balancers and fully split components, each on its own dedicated server.
+
+**Added components and why:**
+
+- **1 new server**: needed to host the newly separated component — splitting web server, application server, and database each onto their own machine requires an additional server compared to the previous design
+
+- **2nd HAProxy (clustered with the first)**: the load balancer was a SPOF in the previous design — adding a second one in an Active-Active cluster means if one LB fails, the other continues routing traffic without interruption; both share state and handle requests simultaneously
+
+- **Dedicated web server (Nginx)**: handles only static file serving and HTTP request routing — isolated from application logic so it can be scaled, restarted, or updated independently without affecting the app or database
+
+- **Dedicated application server**: runs only the business logic and application code — CPU-intensive tasks (processing, rendering, API calls) no longer compete with web serving or database I/O; can be scaled horizontally by adding more app servers behind the LB
+
+- **Dedicated database server (MySQL)**: gets exclusive access to RAM and disk I/O — no resource contention with Nginx or the app server; database tuning and scaling can be done independently; Primary-Replica setup remains for read scaling and redundancy
+
+**Key benefit of component separation:**
+Each layer (web, app, DB) can now fail, scale, update, and be monitored independently — this is the foundation of a production-grade, maintainable infrastructure.
